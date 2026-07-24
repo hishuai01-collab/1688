@@ -10,6 +10,7 @@ import { NestEmitterModule } from "nest-emitter";
 import { EventEmitter } from "events";
 import { BullModule } from "@nestjs/bull";
 import { StatisticModule } from "./statistic/statistic.module";
+import { Hot1688Module } from "./1688/1688.module";
 import constants from "./util/constants";
 
 @Module({
@@ -21,6 +22,7 @@ import constants from "./util/constants";
       token: process.env.TOKEN
     }),
     RssModule,
+    Hot1688Module,
     SettingModule,
     StatisticModule,
     BullModule.forRoot({

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 import { rss, Prisma } from "@prisma/client";
-import { chatid, delay } from "../util/config";
+import { chatid, delay, pollInterval, keywordWhitelist, keywordBlacklist } from "../util/config";
 import Parser from "rss-parser";
 import { getFeedData } from "../util/axios";
 import { TelegramService } from "../telegram/telegram.service";
@@ -38,11 +38,36 @@ export class RssService implements OnModuleInit {
     await this.messagesQueue.resume();
   }
 
-  every = 300000;
+  every = pollInterval;
 
   getJobId = (feed: rss) => {
     return `feed=${feed.id}&chat_id=${feed.chat_id}`;
   };
+
+  /**
+   * 关键词白名单 / 黑名单过滤
+   * - 若白名单非空：标题或内容必须包含至少一个白名单关键词，否则过滤
+   * - 若黑名单非空：标题或内容包含任何黑名单关键词则过滤
+   */
+  shouldSendItem(item: Parser.Item): boolean {
+    const text = `${item.title || ""} ${item.content || item.contentSnippet || ""}`.toLowerCase();
+
+    if (keywordWhitelist.length > 0) {
+      const matched = keywordWhitelist.some((kw) =>
+        text.includes(kw.toLowerCase())
+      );
+      if (!matched) return false;
+    }
+
+    if (keywordBlacklist.length > 0) {
+      const matched = keywordBlacklist.some((kw) =>
+        text.includes(kw.toLowerCase())
+      );
+      if (matched) return false;
+    }
+
+    return true;
+  }
 
   async syncRepeatableJobs() {
     let repeatableJobs = await this.repeatableFeedQueue.getRepeatableJobs();
@@ -250,10 +275,20 @@ export class RssService implements OnModuleInit {
             return;
           }
 
-          winston.debug(`Adding job: ${gapItem.link}`, {
-            labels: { chat_id: rss.chat_id }
-          });
-          await this.addMessageJob(rss.chat_id, gapItem);
+          // 关键词白名单 / 黑名单过滤
+          const shouldSend = this.shouldSendItem(gapItem);
+          if (!shouldSend) {
+            winston.debug(`Filtered out item: ${gapItem.link}`, {
+              labels: { chat_id: rss.chat_id }
+            });
+          } else {
+            winston.debug(`Adding job: ${gapItem.link}`, {
+              labels: { chat_id: rss.chat_id }
+            });
+            await this.addMessageJob(rss.chat_id, gapItem);
+          }
+
+          // 保存检查点（无论是否过滤，确保去重生效）
           if (itemIndex === 0) {
             winston.debug("saving: " + lastItem.link, {
               labels: { chat_id: rss.chat_id }

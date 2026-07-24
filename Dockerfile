@@ -17,5 +17,6 @@ COPY ./prisma ./prisma/
 COPY ./start_bot.sh .
 
 # migrate database
-RUN apk add sqlite
+RUN apk add sqlite chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/playwright-browsers
 ENTRYPOINT ["./start_bot.sh"]

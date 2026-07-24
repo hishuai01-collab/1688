@@ -23,6 +23,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "generate:image": "ts-node scripts/generate_image.ts"
   },
+  "postinstall": "npx playwright install chromium",
   "dependencies": {
     "@nestjs/bull": "^0.6.3",
     "@nestjs/cli": "^8.1.3",
@@ -37,10 +38,12 @@
     "@prisma/client": "^3.15.2",
     "axios": "^0.26.1",
     "bull": "^4.10.4",
+    "cheerio": "^1.0.0",
     "copyfiles": "^2.4.1",
     "luxon": "^3.4.3",
     "nest-emitter": "^1.1.1",
     "nestjs-telegraf": "^2.4.0",
+    "playwright": "^1.52.0",
     "pre-push": "^0.1.2",
     "reflect-metadata": "^0.1.13",
     "release-it": "^14.14.1",

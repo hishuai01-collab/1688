@@ -32,9 +32,10 @@ export class TelegramProcessor {
     );
 
     try {
-      await this.telegramService.sendRss(
+      // 使用增强版 sendFeedItem，传递完整 feedItem 以支持格式化排版和长消息拆分
+      await this.telegramService.sendFeedItem(
         job.data.chatId,
-        job.data.feedItem.link
+        job.data.feedItem
       );
       done();
     } catch (error) {

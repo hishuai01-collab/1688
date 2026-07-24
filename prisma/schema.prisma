@@ -33,3 +33,60 @@ model statistic {
   count      Int
   created_at DateTime @default(now())
 }
+
+model keyword {
+  id        Int      @id @unique @default(autoincrement())
+  term      String   @unique
+  enabled   Boolean  @default(true)
+  created_at DateTime @default(now())
+}
+
+model product {
+  id            Int      @id @unique @default(autoincrement())
+  source_id     String   @unique
+  title         String
+  price         String
+  price_num     Float
+  currency      String   @default("CNY")
+  sales         Int      @default(0)
+  shop_name     String
+  shop_url      String
+  product_url   String
+  image_url     String?
+  category      String?
+  location      String?
+  is_dropship   Boolean  @default(false)
+  heat_score    Float    @default(0)
+  last_seen_at  DateTime @default(now())
+  first_seen_at DateTime @default(now())
+  push_count    Int      @default(0)
+  last_pushed_at DateTime?
+
+  snapshots product_snapshot[]
+  push_logs push_log[]
+}
+
+model product_snapshot {
+  id         Int      @id @unique @default(autoincrement())
+  product_id Int
+  price      Float
+  sales      Int
+  heat_score Float
+  created_at DateTime @default(now())
+
+  product product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id, created_at])
+}
+
+model push_log {
+  id          Int      @id @unique @default(autoincrement())
+  product_id  Int
+  keyword_id  Int?
+  chat_id     Int
+  message_id  Int?
+  score       Float
+  created_at  DateTime @default(now())
+
+  product product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+}

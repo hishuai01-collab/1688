@@ -4,6 +4,7 @@ import { Context } from "./context.interface";
 import { EventEmitterType } from "./events";
 import { RssService } from "./rss/rss.service";
 import { SettingService } from "./setting/setting.service";
+import { Hot1688Service } from "./1688/service/1688.service";
 import { adminchatid } from "./util/config";
 import mdLoader from "./util/mdLoader";
 import { toBoolean } from "./util/toBoolean";
@@ -16,6 +17,7 @@ export class AppUpdate {
   constructor(
     private rssService: RssService,
     private settingService: SettingService,
+    private hot1688Service: Hot1688Service,
     @InjectEventEmitter() private readonly emitter: EventEmitterType
   ) {}
 
@@ -282,5 +284,71 @@ export class AppUpdate {
     if (fromId !== adminchatid) return;
 
     await this.rssService.getStats();
+  }
+
+  @Command("hot")
+  @Command("1688")
+  async on1688Help(ctx: Context) {
+    await ctx.reply(
+      "1688 热品推送命令：\n" +
+        "/hot add <关键词> — 添加监控词\n" +
+        "/hot rm <关键词> — 暂停监控词\n" +
+        "/hot list — 查看监控词列表\n" +
+        "/hot scan — 手动触发一次扫描"
+    );
+  }
+
+  @Command("hot_add")
+  async onHotAdd(ctx: Context) {
+    await this.initializeSettings(ctx);
+    const text = this.getMessage(ctx);
+    const term = text.replace("/hot_add ", "").trim();
+    if (!term) {
+      await ctx.reply("用法: /hot_add <关键词>");
+      return;
+    }
+    if (!this.hot1688Service) return;
+    try {
+      const kw = await this.hot1688Service.addKeyword(term);
+      await ctx.reply(`✅ 已添加监控词: ${kw.term}`);
+    } catch (err) {
+      await ctx.reply("添加失败: " + (err instanceof Error ? err.message : err));
+    }
+  }
+
+  @Command("hot_rm")
+  async onHotRm(ctx: Context) {
+    await this.initializeSettings(ctx);
+    const text = this.getMessage(ctx);
+    const term = text.replace("/hot_rm ", "").trim();
+    if (!term) {
+      await ctx.reply("用法: /hot_rm <关键词>");
+      return;
+    }
+    if (!this.hot1688Service) return;
+    await this.hot1688Service.removeKeyword(term);
+    await ctx.reply(`⏸️ 已暂停监控词: ${term}`);
+  }
+
+  @Command("hot_list")
+  async onHotList(ctx: Context) {
+    await this.initializeSettings(ctx);
+    if (!this.hot1688Service) return;
+    const keywords = await this.hot1688Service.getKeywords();
+    if (keywords.length === 0) {
+      await ctx.reply("暂无监控词，使用 /hot_add <关键词> 添加");
+      return;
+    }
+    const lines = keywords.map((k) => `${k.enabled ? "✅" : "⏸️"} ${k.term}`);
+    await ctx.reply(`监控词列表 (${keywords.length}):\n\n${lines.join("\n")}`);
+  }
+
+  @Command("hot_scan")
+  async onHotScan(ctx: Context) {
+    if (!this.hot1688Service) return;
+    await ctx.reply("🔍 手动扫描中，结果稍后推送...");
+    this.hot1688Service.runScanCycle().catch((err) =>
+      ctx.reply("扫描失败: " + (err instanceof Error ? err.message : err))
+    );
   }
 }
