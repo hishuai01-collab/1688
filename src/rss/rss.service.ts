@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 import { rss, Prisma } from "@prisma/client";
-import { chatid, delay, pollInterval, keywordWhitelist, keywordBlacklist } from "../util/config";
+import {
+  chatid,
+  delay,
+  pollInterval,
+  keywordWhitelist,
+  keywordBlacklist,
+} from "../util/config";
 import Parser from "rss-parser";
 import { getFeedData } from "../util/axios";
 import { TelegramService } from "../telegram/telegram.service";
@@ -26,7 +32,7 @@ export class RssService implements OnModuleInit {
     private prisma: PrismaService,
     private telegramService: TelegramService,
     private statisticService: StatisticService,
-    private logger: CustomLoggerService
+    private logger: CustomLoggerService,
   ) {
     this.logger.setContext("RssService");
     winston.debug("DELAY: " + delay + " seconds");
@@ -50,18 +56,20 @@ export class RssService implements OnModuleInit {
    * - 若黑名单非空：标题或内容包含任何黑名单关键词则过滤
    */
   shouldSendItem(item: Parser.Item): boolean {
-    const text = `${item.title || ""} ${item.content || item.contentSnippet || ""}`.toLowerCase();
+    const text = `${item.title || ""} ${
+      item.content || item.contentSnippet || ""
+    }`.toLowerCase();
 
     if (keywordWhitelist.length > 0) {
       const matched = keywordWhitelist.some((kw) =>
-        text.includes(kw.toLowerCase())
+        text.includes(kw.toLowerCase()),
       );
       if (!matched) return false;
     }
 
     if (keywordBlacklist.length > 0) {
       const matched = keywordBlacklist.some((kw) =>
-        text.includes(kw.toLowerCase())
+        text.includes(kw.toLowerCase()),
       );
       if (matched) return false;
     }
@@ -76,7 +84,7 @@ export class RssService implements OnModuleInit {
 
     const wantedFeeds = feeds.map((feed) => ({
       ...feed,
-      key: this.getJobId(feed)
+      key: this.getJobId(feed),
     }));
 
     const checkedJobs: Parser.Item & { key: string }[] = [];
@@ -98,7 +106,7 @@ export class RssService implements OnModuleInit {
     // check if wanted jobs are missing
     for (const wantedFeed of wantedFeeds) {
       const isMissingJob = !checkedJobs.some((job) =>
-        job.key.includes(wantedFeed.key)
+        job.key.includes(wantedFeed.key),
       );
 
       if (isMissingJob) {
@@ -116,16 +124,16 @@ export class RssService implements OnModuleInit {
         jobId: this.getJobId(rss),
         repeat: { every: this.every },
         removeOnComplete: true,
-        removeOnFail: true
-      }
+        removeOnFail: true,
+      },
     );
   }
 
   async feed(
-    userWhereUniqueInput: Prisma.rssWhereUniqueInput
+    userWhereUniqueInput: Prisma.rssWhereUniqueInput,
   ): Promise<rss | null> {
     return this.prisma.rss.findUnique({
-      where: userWhereUniqueInput
+      where: userWhereUniqueInput,
     });
   }
 
@@ -142,7 +150,7 @@ export class RssService implements OnModuleInit {
       take,
       cursor,
       where,
-      orderBy
+      orderBy,
     });
   }
 
@@ -152,7 +160,7 @@ export class RssService implements OnModuleInit {
 
   async createFeed(data: Prisma.rssCreateInput): Promise<rss> {
     return this.prisma.rss.create({
-      data
+      data,
     });
   }
 
@@ -163,40 +171,41 @@ export class RssService implements OnModuleInit {
     const { where, data } = params;
     const result = await this.prisma.rss.update({
       data,
-      where
+      where,
     });
     await this.syncRepeatableJobs();
     return result;
   }
 
-  async deleteFeed(chatId: number, name: string): Promise<rss> {
+  async deleteFeed(chatId: number, name: string): Promise<rss | null> {
     const result = await this.prisma.rss.findFirst({
       where: {
         chat_id: chatId,
-        name: name
-      }
+        name: name,
+      },
     });
 
     if (result) {
       const deletedFeed = await this.prisma.rss.delete({
-        where: { id: result.id }
+        where: { id: result.id },
       });
       await this.syncRepeatableJobs();
       return deletedFeed;
     }
+    return null;
   }
 
   async migrateChat(dto: { chatId: number; newChatId: number }) {
     await this.prisma.rss.updateMany({
       where: { chat_id: dto.chatId },
-      data: { chat_id: dto.newChatId }
+      data: { chat_id: dto.newChatId },
     });
   }
 
   async disableAllFeeds(dto: { chatId: number; disable: boolean }) {
     await this.prisma.rss.updateMany({
       where: { chat_id: dto.chatId },
-      data: { disabled: dto.disable }
+      data: { disabled: dto.disable },
     });
     const activeJobs = await this.messagesQueue.getJobs(["waiting", "delayed"]);
 
@@ -211,13 +220,13 @@ export class RssService implements OnModuleInit {
   async disableFeed(dto: { name: string; disable: boolean; chatId: number }) {
     await this.prisma.rss.updateMany({
       where: { name: dto.name, chat_id: dto.chatId },
-      data: { disabled: dto.disable, failures: JSON.stringify([]) }
+      data: { disabled: dto.disable, failures: JSON.stringify([]) },
     });
     await this.syncRepeatableJobs();
   }
 
   async processFeedJob(rss: rss) {
-    const isDevChat = rss.chat_id === parseInt(process.env.DEV_CHAT);
+    const isDevChat = rss.chat_id === parseInt(process.env.DEV_CHAT ?? "");
     try {
       let feedReq = await getFeedData(rss.link);
 
@@ -227,7 +236,7 @@ export class RssService implements OnModuleInit {
       // workaround for double msges
       rss = (
         await this.feeds({
-          where: { id: rss.id }
+          where: { id: rss.id },
         })
       )[0];
 
@@ -236,19 +245,19 @@ export class RssService implements OnModuleInit {
       const lastItem = feedItems[0];
       if (isDevChat) {
         winston.debug("feedItems: " + JSON.stringify(feedItems), {
-          labels: { chat_id: rss.chat_id }
+          labels: { chat_id: rss.chat_id },
         });
       }
       winston.debug(`-------checking feed: ${rss.name}---------- `, {
-        labels: { chat_id: rss.chat_id }
+        labels: { chat_id: rss.chat_id },
       });
       winston.debug("last: " + lastItem.link, {
-        labels: { chat_id: rss.chat_id }
+        labels: { chat_id: rss.chat_id },
       });
       if (lastItem.link !== rss.last) {
         if (isDevChat) {
           winston.debug("current feed last:" + rss.last, {
-            labels: { chat_id: rss.chat_id }
+            labels: { chat_id: rss.chat_id },
           });
         }
         const findSavedItemIndex =
@@ -257,19 +266,19 @@ export class RssService implements OnModuleInit {
             : feedItems.length - 1;
         const newItemsCount = findSavedItemIndex + 1;
         winston.debug("new items: " + newItemsCount, {
-          labels: { chat_id: rss.chat_id }
+          labels: { chat_id: rss.chat_id },
         });
 
         this.statisticService.create({
           count: newItemsCount,
-          chat_id: rss.chat_id
+          chat_id: rss.chat_id,
         });
         for (let itemIndex = findSavedItemIndex; itemIndex > -1; itemIndex--) {
           const gapItem = feedItems[itemIndex];
           if (!gapItem.link) {
             if (isDevChat) {
               winston.debug("no gapItem link: " + JSON.stringify(gapItem), {
-                labels: { chat_id: rss.chat_id }
+                labels: { chat_id: rss.chat_id },
               });
             }
             return;
@@ -279,11 +288,11 @@ export class RssService implements OnModuleInit {
           const shouldSend = this.shouldSendItem(gapItem);
           if (!shouldSend) {
             winston.debug(`Filtered out item: ${gapItem.link}`, {
-              labels: { chat_id: rss.chat_id }
+              labels: { chat_id: rss.chat_id },
             });
           } else {
             winston.debug(`Adding job: ${gapItem.link}`, {
-              labels: { chat_id: rss.chat_id }
+              labels: { chat_id: rss.chat_id },
             });
             await this.addMessageJob(rss.chat_id, gapItem);
           }
@@ -291,43 +300,45 @@ export class RssService implements OnModuleInit {
           // 保存检查点（无论是否过滤，确保去重生效）
           if (itemIndex === 0) {
             winston.debug("saving: " + lastItem.link, {
-              labels: { chat_id: rss.chat_id }
+              labels: { chat_id: rss.chat_id },
             });
 
             await this.updateFeed({
               where: { id: rss.id },
-              data: { last: lastItem.link }
+              data: { last: lastItem.link },
             });
 
             if (isDevChat) {
               const feed = await this.feeds({
-                where: { disabled: false, id: rss.id }
+                where: { disabled: false, id: rss.id },
               });
 
               winston.debug("saved in DB: " + JSON.stringify(feed), {
-                labels: { chat_id: rss.chat_id }
+                labels: { chat_id: rss.chat_id },
               });
             }
             winston.debug("Done! saving checkpoint: " + lastItem.link, {
-              chaId: { chat_id: rss.chat_id }
+              chaId: { chat_id: rss.chat_id },
             });
           }
         }
       }
       winston.debug("-------------done------------------", {
-        labels: { chat_id: rss.chat_id }
+        labels: { chat_id: rss.chat_id },
       });
     } catch (error) {
       await this.handleFeedFailure(rss, error);
-      winston.error(error, { labels: { chat_id: rss.chat_id } });
+      winston.error(error instanceof Error ? error.message : String(error), {
+        labels: { chat_id: rss.chat_id },
+      });
     }
   }
 
-  async handleFeedFailure(rss: rss, error) {
+  async handleFeedFailure(rss: rss, error: unknown) {
     try {
       const updatedRss = (
         await this.feeds({
-          where: { id: rss.id }
+          where: { id: rss.id },
         })
       )[0];
 
@@ -337,32 +348,36 @@ export class RssService implements OnModuleInit {
         failures = JSON.parse(updatedRss.failures);
       }
 
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       failures.push({
-        [DateTime.now().toFormat("yyyy-MM-dd TT")]: error.message
+        [DateTime.now().toFormat("yyyy-MM-dd TT")]: errorMessage,
       });
       await this.updateFeed({
         where: { id: updatedRss.id },
-        data: { failures: JSON.stringify(failures) }
+        data: { failures: JSON.stringify(failures) },
       });
 
       if (failures.length >= 10) {
         await this.disableFeed({
           chatId: rss.chat_id,
           name: rss.name,
-          disable: true
+          disable: true,
         });
         await this.telegramService.sendRss(
           rss.chat_id,
-          `Feed failure, disabling feed: ${rss.name}`
+          `Feed failure, disabling feed: ${rss.name}`,
         );
         await this.telegramService.sendRss(
           rss.chat_id,
-          JSON.stringify(failures)
+          JSON.stringify(failures),
         );
         throw new Error("FEED_FAILURE");
       }
     } catch (error) {
-      winston.error(error, { labels: { chat_id: rss.chat_id } });
+      winston.error(error instanceof Error ? error.message : String(error), {
+        labels: { chat_id: rss.chat_id },
+      });
     }
   }
 
@@ -374,14 +389,14 @@ export class RssService implements OnModuleInit {
     const stats = {
       feeds: enabledFeeds.length.toString(),
       users: users.toString(),
-      disabledFeeds: disabledFeeds.length.toString()
+      disabledFeeds: disabledFeeds.length.toString(),
     };
 
     const chatStats = await this.statisticService.getStats();
 
     const sum = chatStats
-      .sort((a, b) => b._sum.count - a._sum.count)
-      .filter((item) => item._sum.count > 1000)
+      .sort((a, b) => (b._sum.count ?? 0) - (a._sum.count ?? 0))
+      .filter((item) => (item._sum.count ?? 0) > 1000)
       .map((_) => `${_.chat_id}: ${_._sum.count}\n`)
       .join("");
 
@@ -397,7 +412,7 @@ Completed: ${await this.messagesQueue.getCompletedCount()}
 
 -- Chat stats over 1000 --
 ${sum}
-`
+`,
     );
   }
 
@@ -407,11 +422,11 @@ ${sum}
         "message",
         {
           chatId: chatId,
-          feedItem: feedItem
+          feedItem: feedItem,
         },
         {
-          removeOnComplete: true
-        }
+          removeOnComplete: true,
+        },
       );
     } catch (error) {
       winston.error(error);
@@ -427,7 +442,7 @@ ${sum}
         try {
           await this.updateFeed({
             where: { id: feed.id },
-            data: { chat_id: chatid }
+            data: { chat_id: chatid },
           });
           winston.debug("feed saved");
         } catch (error) {
