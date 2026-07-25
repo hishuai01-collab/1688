@@ -113,7 +113,7 @@ export class FingerprintManager {
   /**
    * 注入反检测脚本
    */
-  static getStealthScript(): string {
+  static getStealthScript(fingerprint: FingerprintOptions): string {
     return `
       // 移除 webdriver 属性
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });

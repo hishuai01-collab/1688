@@ -17,25 +17,35 @@ export class CaptchaHandler {
 
   async detectCaptcha(page: Page): Promise<boolean> {
     try {
-      const slider = await page.$('.nc_wrapper, .nc-lang-cnt, #nc_1_n1, .nc-module, [id*="nc_"]', { state: "attached" }).catch(() => null);
+      const slider = await page
+        .$('.nc_wrapper, .nc-lang-cnt, #nc_1_n1, .nc-module, [id*="nc_"]')
+        .catch(() => null);
       if (slider) {
         this.logger.warn("Detected slider CAPTCHA");
         return true;
       }
 
-      const inputCaptcha = await page.$('input[name="captcha"], .captcha-input, [id*="captcha"]', { state: "attached" }).catch(() => null);
+      const inputCaptcha = await page
+        .$('input[name="captcha"], .captcha-input, [id*="captcha"]')
+        .catch(() => null);
       if (inputCaptcha) {
         this.logger.warn("Detected input CAPTCHA");
         return true;
       }
 
-      const iframes = await page.$$('iframe[src*="captcha"], iframe[src*="slide"], iframe[id*="captcha"]', { state: "attached" }).catch(() => []);
+      const iframes = await page
+        .$$(
+          'iframe[src*="captcha"], iframe[src*="slide"], iframe[id*="captcha"]',
+        )
+        .catch(() => []);
       if (iframes && iframes.length > 0) {
         this.logger.warn(`Detected ${iframes.length} CAPTCHA iframes`);
         return true;
       }
 
-      const captchaImg = await page.$('.captcha-img, [id*="captcha_img"], [class*="verify_code"]', { state: "attached" }).catch(() => null);
+      const captchaImg = await page
+        .$('.captcha-img, [id*="captcha_img"], [class*="verify_code"]')
+        .catch(() => null);
       if (captchaImg) {
         this.logger.warn("Detected image CAPTCHA");
         return true;
@@ -43,7 +53,9 @@ export class CaptchaHandler {
 
       return false;
     } catch (err) {
-      this.logger.debug(`Captcha detection error: ${err instanceof Error ? err.message : err}`);
+      this.logger.debug(
+        `Captcha detection error: ${err instanceof Error ? err.message : err}`,
+      );
       return false;
     }
   }
@@ -71,7 +83,9 @@ export class CaptchaHandler {
         message: "Unable to handle CAPTCHA automatically",
       };
     } catch (err) {
-      this.logger.error(`CAPTCHA handling failed: ${err instanceof Error ? err.message : err}`);
+      this.logger.error(
+        `CAPTCHA handling failed: ${err instanceof Error ? err.message : err}`,
+      );
       return {
         handled: false,
         type: "unknown",
@@ -83,16 +97,16 @@ export class CaptchaHandler {
   private async handleSlider(page: Page): Promise<CaptchaResult> {
     try {
       const sliderSelectors = [
-        '.nc_wrapper .nc_bg, #nc_1_n1, .nc-module .slider',
+        ".nc_wrapper .nc_bg, #nc_1_n1, .nc-module .slider",
         '[id*="nc_"] .nc_bg, [id*="nc_"] .slider',
-        '.nc-lang-cnt .nc_bg',
+        ".nc-lang-cnt .nc_bg",
         '.J_NC_Btn, .nc-btn, [class*="slider"]',
       ];
 
       let sliderHandle: any = null;
       for (const selector of sliderSelectors) {
         try {
-          sliderHandle = await page.$(selector, { state: "attached" });
+          sliderHandle = await page.$(selector);
           if (sliderHandle) break;
         } catch {
           continue;
@@ -110,15 +124,15 @@ export class CaptchaHandler {
 
       let trackHandle: any = null;
       const trackSelectors = [
-        '.nc_wrapper .nc_bg, #nc_1_n1, .nc-module .nc_bg',
+        ".nc_wrapper .nc_bg, #nc_1_n1, .nc-module .nc_bg",
         '[id*="nc_"] .nc_bg',
-        '.nc-lang-cnt .nc_bg',
+        ".nc-lang-cnt .nc_bg",
         '[class*="track"]',
       ];
 
       for (const selector of trackSelectors) {
         try {
-          trackHandle = await page.$(selector, { state: "attached" });
+          trackHandle = await page.$(selector);
           if (trackHandle) break;
         } catch {
           continue;
@@ -162,31 +176,43 @@ export class CaptchaHandler {
         return { handled: true, type: "slider", message: "Slider verified" };
       }
 
-      return { handled: false, type: "slider", message: "Slider verification failed" };
+      return {
+        handled: false,
+        type: "slider",
+        message: "Slider verification failed",
+      };
     } catch (err) {
-      this.logger.warn(`Slider handling error: ${err instanceof Error ? err.message : err}`);
-      return { handled: false, type: "slider", message: err instanceof Error ? err.message : String(err) };
+      this.logger.warn(
+        `Slider handling error: ${err instanceof Error ? err.message : err}`,
+      );
+      return {
+        handled: false,
+        type: "slider",
+        message: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 
   private async checkSliderPassed(page: Page): Promise<boolean> {
     try {
       const passedSelectors = [
-        '.nc-bg_item.nc_bg_hompage, .nc_bg_suksess, .nc-success',
+        ".nc-bg_item.nc_bg_hompage, .nc_bg_suksess, .nc-success",
         '.nc-lang-cnt .nc-bg_item, [class*="success"]',
         '.nc-wrapper .nc-bg_item, [class*="passed"]',
       ];
 
       for (const selector of passedSelectors) {
         try {
-          const element = await page.$(selector, { state: "attached" });
+          const element = await page.$(selector);
           if (element) return true;
         } catch {
           continue;
         }
       }
 
-      const sliderExists = await page.$('.nc_wrapper, #nc_1_n1, [class*="nc_"]', { state: "attached" }).catch(() => null);
+      const sliderExists = await page
+        .$('.nc_wrapper, #nc_1_n1, [class*="nc_"]')
+        .catch(() => null);
       if (!sliderExists) return true;
 
       return false;
@@ -197,7 +223,9 @@ export class CaptchaHandler {
 
   private async handleInputCaptcha(page: Page): Promise<CaptchaResult> {
     try {
-      const inputHandle = await page.$('input[name="captcha"], .captcha-input, [id*="captcha"]', { state: "attached" });
+      const inputHandle = await page.$(
+        'input[name="captcha"], .captcha-input, [id*="captcha"]',
+      );
       if (!inputHandle) {
         return { handled: false };
       }
@@ -209,7 +237,11 @@ export class CaptchaHandler {
         message: "Input CAPTCHA requires manual handling or OCR service",
       };
     } catch (err) {
-      return { handled: false, type: "input", message: err instanceof Error ? err.message : String(err) };
+      return {
+        handled: false,
+        type: "input",
+        message: err instanceof Error ? err.message : String(err),
+      };
     }
   }
 
@@ -218,12 +250,12 @@ export class CaptchaHandler {
       const refreshSelectors = [
         '.nc-reload, .refresh, [class*="reload"], [class*="refresh"]',
         '.captcha-refresh, .change-code, [id*="refresh"]',
-        '.nc_wrapper .nc-reload, #nc_1_n1_reload',
+        ".nc_wrapper .nc-reload, #nc_1_n1_reload",
       ];
 
       for (const selector of refreshSelectors) {
         try {
-          const element = await page.$(selector, { state: "attached" });
+          const element = await page.$(selector);
           if (element) {
             await element.click();
             await page.waitForTimeout(1000);
@@ -241,7 +273,10 @@ export class CaptchaHandler {
     }
   }
 
-  async waitForCaptchaClear(page: Page, timeoutMs: number = 10000): Promise<boolean> {
+  async waitForCaptchaClear(
+    page: Page,
+    timeoutMs: number = 10000,
+  ): Promise<boolean> {
     const startTime = Date.now();
     while (Date.now() - startTime < timeoutMs) {
       const hasCaptcha = await this.detectCaptcha(page);

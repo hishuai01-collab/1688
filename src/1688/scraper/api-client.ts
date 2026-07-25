@@ -3,10 +3,10 @@ import { RawProductItem } from "../dto/product.dto";
 
 /**
  * 1688 内部 JSON API 客户端
- * 
+ *
  * 逆向 1688 的 mtop 接口，直接调用内部 API 获取数据
  * 比解析 HTML 更稳定、速度更快
- * 
+ *
  * 核心接口：
  * - mtop.1688.offer.search: 搜索商品列表
  * - mtop.1688.offer.detail: 商品详情
@@ -54,21 +54,7 @@ export class AlibabaApiClient {
       "x-utdid": this.generateUtdid(),
       "x-appkey": "12574478", // 1688 App Key
       "x-sgext": "",
-      "x-pv": "6.3",
-      "x-ttid": "10000100@alibaba_1688_7.0.0",
       "x-ut": "0",
-      "x-ttid": "10000100@alibaba_1688_7.0.0",
-      "x-features": "27",
-      "x-uid": "",
-      "x-umt-trace": "",
-      "x-ut": "0",
-      "x-nettype": "WIFI",
-      "x-pv": "6.3",
-      "x-sgext": "",
-      "x-mini-wua": "",
-      "x-devid": this.generateDeviceId(),
-      "x-utdid": this.generateUtdid(),
-      "x-appkey": "12574478",
     };
   }
 
@@ -79,7 +65,7 @@ export class AlibabaApiClient {
   async searchByApi(
     keyword: string,
     page: number = 1,
-    pageSize: number = 20
+    pageSize: number = 20,
   ): Promise<ApiSearchResult> {
     const api = "mtop.1688.offer.search";
     const version = "1.0";
@@ -110,7 +96,9 @@ export class AlibabaApiClient {
       return this.parseSearchResponse(response, keyword);
     } catch (err) {
       this.logger.warn(
-        `API search failed for "${keyword}": ${err instanceof Error ? err.message : err}`
+        `API search failed for "${keyword}": ${
+          err instanceof Error ? err.message : err
+        }`,
       );
       return { items: [], totalCount: 0, hasMore: false };
     }
@@ -143,7 +131,9 @@ export class AlibabaApiClient {
       return this.parseDetailResponse(response, offerId);
     } catch (err) {
       this.logger.warn(
-        `API detail failed for offer ${offerId}: ${err instanceof Error ? err.message : err}`
+        `API detail failed for offer ${offerId}: ${
+          err instanceof Error ? err.message : err
+        }`,
       );
       return null;
     }
@@ -153,11 +143,7 @@ export class AlibabaApiClient {
    * 构建 mtop 请求参数（含签名）
    * mtop 的签名算法基于 data + appKey + timestamp
    */
-  private buildMtopParams(
-    api: string,
-    version: string,
-    data: string
-  ): string {
+  private buildMtopParams(api: string, version: string, data: string): string {
     const timestamp = Date.now().toString();
     const appKey = "12574478";
     const t = timestamp;
@@ -199,13 +185,17 @@ export class AlibabaApiClient {
     version: string,
     data: string,
     t: string,
-    appKey: string
+    appKey: string,
   ): string {
     // 简化签名：实际需要逆向完整的 mtop 签名算法
     // 这里使用 SHA256 模拟
     const crypto = require("crypto");
     const signStr = `${api}&${version}&${appKey}&${data}&${t}`;
-    return crypto.createHash("sha256").update(signStr).digest("hex").substring(0, 32);
+    return crypto
+      .createHash("sha256")
+      .update(signStr)
+      .digest("hex")
+      .substring(0, 32);
   }
 
   /**
@@ -228,7 +218,8 @@ export class AlibabaApiClient {
    * 生成 UTDID
    */
   private generateUtdid(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let utdid = "";
     for (let i = 0; i < 24; i++) {
       utdid += chars[Math.floor(Math.random() * chars.length)];
@@ -239,10 +230,7 @@ export class AlibabaApiClient {
   /**
    * 发送 HTTP 请求
    */
-  private async request(
-    url: string,
-    options: RequestInit
-  ): Promise<any> {
+  private async request(url: string, options: RequestInit): Promise<any> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -308,30 +296,35 @@ export class AlibabaApiClient {
   /**
    * 解析搜索响应
    */
-  private parseSearchResponse(
-    response: any,
-    keyword: string
-  ): ApiSearchResult {
+  private parseSearchResponse(response: any, keyword: string): ApiSearchResult {
     if (!response) {
       return { items: [], totalCount: 0, hasMore: false };
     }
 
     // mtop 返回格式可能有多层嵌套
     const data = response.data || response.result || response;
-    const offerList = data.offerList || data.list || data.items || data.offers || [];
+    const offerList =
+      data.offerList || data.list || data.items || data.offers || [];
     const totalCount = data.totalCount || data.total || offerList.length || 0;
 
     const items: RawProductItem[] = offerList.map((offer: any) => ({
       sourceId: String(offer.offerId || offer.id || ""),
       title: (offer.title || offer.subject || keyword).substring(0, 120),
-      price: offer.price?.priceText || offer.priceText || `¥${offer.price?.originalPrice || "0"}`,
+      price:
+        offer.price?.priceText ||
+        offer.priceText ||
+        `¥${offer.price?.originalPrice || "0"}`,
       priceNum: parseFloat(offer.price?.originalPrice || offer.price || "0"),
       currency: "CNY",
       sales: offer.salesCount || offer.sales || offer.tradeCount || 0,
-      shopName: offer.companyName || offer.shopName || offer.sellerName || "未知商家",
+      shopName:
+        offer.companyName || offer.shopName || offer.sellerName || "未知商家",
       shopUrl: offer.shopUrl || offer.shopURL || "",
-      productUrl: `https://detail.1688.com/offer/${offer.offerId || offer.id}.html`,
-      imageUrl: offer.imageUrl || offer.imgUrl || offer.picUrl || offer.image?.imgUrl,
+      productUrl: `https://detail.1688.com/offer/${
+        offer.offerId || offer.id
+      }.html`,
+      imageUrl:
+        offer.imageUrl || offer.imgUrl || offer.picUrl || offer.image?.imgUrl,
       category: offer.categoryName || offer.category,
       location: offer.city || offer.location || offer.address,
       isDropship: offer.isDropship || offer.supportMix || false,
@@ -349,7 +342,7 @@ export class AlibabaApiClient {
    */
   private parseDetailResponse(
     response: any,
-    offerId: string
+    offerId: string,
   ): RawProductItem | null {
     if (!response) return null;
 

@@ -62,7 +62,7 @@ export class PlaywrightScraper1688Service {
     this.browser = await chromium.launch(launchOptions);
     this.context = await this.browser.newContext(contextOptions);
 
-    const stealthScript = FingerprintManager.getStealthScript();
+    const stealthScript = FingerprintManager.getStealthScript(this.fingerprint);
     await this.context.addInitScript(stealthScript);
 
     const savedCookies = this.cookieManager.loadCookies();
